@@ -29,9 +29,11 @@ const registerUser = asyncHandler( async (req, res) => {
     ].some((field) => field?.trim() === "")){
         throw new ApiError(400, "All Feilds are required")
     }
-
+    
     const existedUserName = await User.findOne({username})
     if(existedUserName) return res.status(409).json(new ApiError(409, "Username already existed"));
+    const existedEmail = await User.findOne({email})
+    if(existedEmail) return res.status(409).json(new ApiError(409, "Email already existed"));
 
         
     const user = await User.create({
@@ -77,7 +79,7 @@ const loginUser = asyncHandler (async (req,res) => {
         secure: true,
         sameSite: 'None'
     }
-
+    console.log("loggedInuser",loggedInUser)
     return res.status(200)
     .cookie("accessToken", accessToken, option)
     .cookie("refreshToken", refreshToken, option)

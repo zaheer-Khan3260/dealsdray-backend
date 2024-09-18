@@ -3,6 +3,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/Cloudinary.js';  
+import mongoose from 'mongoose';
 
 const createEmployee = asyncHandler(async (req, res) => {
     const { email, name, mobileno, designation, gender, course } = req.body;
@@ -121,4 +122,74 @@ const deleteEmployee = asyncHandler(async (req, res) => {
     );
 });
 
-export { createEmployee, editEmployee, deleteEmployee };
+const getAllEmployees = asyncHandler(async (req, res) => {
+    const {
+        search,
+        status,
+        page = 1,
+        limit = 10,
+        sortBy = 'createdAt',
+        sortOrder = 'desc'
+    } = req.query;
+
+    const query = {};
+
+    if (search) {
+        query.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } },
+            { _id: search.match(/^[0-9a-fA-F]{24}$/) ? search : null }
+        ];
+    }
+
+    if (status) {
+        query.status = status === 'active';
+    }
+
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    const skip = (page - 1) * limit;
+
+    const employees = await Employee.find(query)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(parseInt(limit));
+
+    const totalEmployees = await Employee.countDocuments(query);
+
+    if (!employees.length) {
+        throw new ApiError(404, "No employees found");
+    }
+
+    res.status(200).json(
+        new ApiResponse(200, {
+            employees,
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(totalEmployees / limit),
+            totalEmployees
+        }, "Employees retrieved successfully")
+    );
+});
+
+const getEmployeeById = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    if (!id) {
+        throw new ApiError(400, "Employee ID is required");
+    }
+
+    const employee = await Employee.findById(id);
+
+    if (!employee) {
+        throw new ApiError(404, "Employee not found");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, employee, "Employee fetched successfully")
+    );
+});
+
+
+
+export { createEmployee, editEmployee, deleteEmployee, getAllEmployees,getEmployeeById };
